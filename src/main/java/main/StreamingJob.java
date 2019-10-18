@@ -53,12 +53,6 @@ public class StreamingJob {
 		String outputTopic = "test_topic2";
 		String consumerGroup = "groupID";
 		String kafkaAddress = "localhost:9092"; // for running in eclipse use "localhost:9092", for flink cluster "kafka:29092"
-		String avroSchemaStringKey = "{\"type\":\"record\",\"name\":\"Key\",\"namespace\":\"com.github.jcustenborder.kafka.connect.model\"," +
-				"\"fields\":[],\"connect.name\":\"com.github.jcustenborder.kafka.connect.model.Key\"}";
-		String avroSchemaStringValue = "{\"type\":\"record\",\"name\":\"Value\",\"namespace\":\"com.github.jcustenborder.kafka.connect.model\"," +
-				"\"fields\":[{\"name\":\"first_name\",\"type\":[\"null\",\"string\"],\"default\":null}," +
-				"{\"name\":\"last_name\",\"type\":[\"null\",\"string\"],\"default\":null}]," +
-				"\"connect.name\":\"com.github.jcustenborder.kafka.connect.model.Value\"}";
 		//get the execution environment
 		StreamExecutionEnvironment environment = StreamExecutionEnvironment.getExecutionEnvironment();
 
