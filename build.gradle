@@ -45,6 +45,9 @@ wrapper {
 // declare where to find the dependencies of your project
 repositories {
     mavenCentral()
+    maven {
+        url 'http://maven.icm.edu.pl/artifactory/repo/'
+    }
 }
 
 // NOTE: We cannot use "compileOnly" or "shadow" configurations since then we could not run code
@@ -79,6 +82,18 @@ dependencies {
 
     // https://mvnrepository.com/artifact/org.apache.flink/flink-connector-kafka
     flinkShadowJar group: 'org.apache.flink', name: "flink-connector-kafka_${scalaBinaryVersion}", version: "${flinkVersion}"
+    // https://mvnrepository.com/artifact/org.apache.flink/flink-json
+    flinkShadowJar group: 'org.apache.flink', name: 'flink-json', version: "${flinkVersion}"
+    // https://mvnrepository.com/artifact/org.apache.flink/flink-avro
+    flinkShadowJar group: 'org.apache.flink', name: 'flink-avro', version: "${flinkVersion}"
+    // https://mvnrepository.com/artifact/org.apache.flink/flink-avro-confluent-registry
+    flinkShadowJar group: 'org.apache.flink', name: 'flink-avro-confluent-registry', version: "${flinkVersion}"
+    // https://mvnrepository.com/artifact/org.apache.avro/avro
+    flinkShadowJar group: 'org.apache.avro', name: 'avro', version: '1.9.1'
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    flinkShadowJar group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.10.0'
+
+
 
 
     compile "log4j:log4j:${log4jVersion}"
@@ -105,7 +120,7 @@ jar {
     manifest {
         attributes 'Built-By': System.getProperty('user.name'),
                 'Build-Jdk': System.getProperty('java.version'),
-                'Main-Class': 'joni.StreamingJob'
+                'Main-Class': 'main.StreamingJob'
     }
 }
 

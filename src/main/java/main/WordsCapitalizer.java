@@ -1,4 +1,4 @@
-package joni;
+package main;
 
 import org.apache.flink.api.common.functions.MapFunction;
 
