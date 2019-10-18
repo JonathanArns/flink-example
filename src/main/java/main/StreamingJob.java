@@ -73,19 +73,28 @@ public class StreamingJob {
 			public ObjectNode map(String value) throws JsonProcessingException {
 				return (ObjectNode)objectMapper.readTree(value);
 			}
-		}).map(new MapFunction<ObjectNode, ObjectNode>() {
-			ObjectMapper objectMapper = new ObjectMapper();
-			@Override
-			public ObjectNode map(ObjectNode value) throws Exception {
-				ObjectNode tmp = (ObjectNode)value.get("payload");
-				tmp.put("first_name", tmp.get("first_name").textValue().toUpperCase());
-				return value;
-			}
 		});
+
+		DataStream<ObjectNode> jsonPayloadStream = jsonStream
+				//remove schemas
+				.map((MapFunction<ObjectNode, ObjectNode>) value -> (ObjectNode)value.get("payload"))
+				//example calculation
+				.map((MapFunction<ObjectNode, ObjectNode>) value -> value.put("first_name", value.get("first_name").textValue().toUpperCase()));
 
 		//TODO: your calculations
 
-		DataStream<String> outputStream = jsonStream.map(new MapFunction<ObjectNode, String>() {
+		// reintroduce the schema and format to string for kafka
+		DataStream<String> outputStream = jsonPayloadStream.map(new MapFunction<ObjectNode, ObjectNode>() {
+			String jsonSchema = "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":true," +
+					"\"field\":\"first_name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"last_name\"}]," +
+					"\"optional\":false,\"name\":\"com.github.jcustenborder.kafka.connect.model.Value\"}}";
+			ObjectMapper objectMapper = new ObjectMapper();
+			ObjectNode schema = (ObjectNode) objectMapper.readTree(jsonSchema);
+			@Override
+			public ObjectNode map(ObjectNode value) throws Exception {
+				return schema.set("payload", value);
+			}
+		}).map(new MapFunction<ObjectNode, String>() {
 			ObjectMapper objectMapper = new ObjectMapper();
 			@Override
 			public String map(ObjectNode value) throws Exception {
