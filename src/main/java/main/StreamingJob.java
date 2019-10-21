@@ -50,9 +50,15 @@ public class StreamingJob {
 	public static void main(String[] args) throws Exception {
 		String jobName = "example_job";
 		String inputTopic = "test_topic";
-		String outputTopic = "test_topic2";
+		String outputTopic = "test_topic_persist";
 		String consumerGroup = "groupID";
 		String kafkaAddress = "localhost:9092"; // for running in eclipse use "localhost:9092", for flink cluster "kafka:29092"
+		String jsonOutputSchema = "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":true," +
+				"\"field\":\"first_name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"last_name\"}]," +
+				"\"optional\":false,\"name\":\"com.github.jcustenborder.kafka.connect.model.Value\"}}";
+
+		ObjectMapper objectMapper = new ObjectMapper();
+
 		//get the execution environment
 		StreamExecutionEnvironment environment = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -67,13 +73,7 @@ public class StreamingJob {
 		DataStream<String> dataStream = environment.addSource(flinkKafkaConsumer);
 
 		//parse the json messages
-		DataStream<ObjectNode> jsonStream = dataStream.map(new MapFunction<String,ObjectNode>() {
-			ObjectMapper objectMapper = new ObjectMapper();
-			@Override
-			public ObjectNode map(String value) throws JsonProcessingException {
-				return (ObjectNode)objectMapper.readTree(value);
-			}
-		});
+		DataStream<ObjectNode> jsonStream = dataStream.map((MapFunction<String, ObjectNode>) value -> (ObjectNode)objectMapper.readTree(value));
 
 		DataStream<ObjectNode> jsonPayloadStream = jsonStream
 				//remove schemas
@@ -83,24 +83,10 @@ public class StreamingJob {
 
 		//TODO: your calculations
 
-		// reintroduce the schema and format to string for kafka
-		DataStream<String> outputStream = jsonPayloadStream.map(new MapFunction<ObjectNode, ObjectNode>() {
-			String jsonSchema = "{\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"string\",\"optional\":true," +
-					"\"field\":\"first_name\"},{\"type\":\"string\",\"optional\":true,\"field\":\"last_name\"}]," +
-					"\"optional\":false,\"name\":\"com.github.jcustenborder.kafka.connect.model.Value\"}}";
-			ObjectMapper objectMapper = new ObjectMapper();
-			ObjectNode schema = (ObjectNode) objectMapper.readTree(jsonSchema);
-			@Override
-			public ObjectNode map(ObjectNode value) throws Exception {
-				return schema.set("payload", value);
-			}
-		}).map(new MapFunction<ObjectNode, String>() {
-			ObjectMapper objectMapper = new ObjectMapper();
-			@Override
-			public String map(ObjectNode value) throws Exception {
-				return objectMapper.writeValueAsString(value);
-			}
-		});
+		// introduce schema and format to the output string for kafka
+		DataStream<String> outputStream = jsonPayloadStream
+				.map((MapFunction<ObjectNode,ObjectNode>) value -> ((ObjectNode)objectMapper.readTree(jsonOutputSchema)).set("payload", value))
+				.map((MapFunction<ObjectNode, String>) value -> objectMapper.writeValueAsString(value));
 
 		//create a new kafka producer -> this is where your results will go
 		Properties producerProps = new Properties();
