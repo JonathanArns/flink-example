@@ -16,10 +16,10 @@ plugins {
 
 
 // artifact properties
-group = 'joni'
+group = 'main'
 version = '0'
-mainClassName = 'joni.StreamingJob'
-description = """Flink Quickstart Job"""
+mainClassName = 'main.StreamingJob'
+description = """Flink Example Job"""
 
 ext {
     javaVersion = '1.8'
@@ -84,6 +84,9 @@ dependencies {
     flinkShadowJar group: 'org.apache.flink', name: "flink-connector-kafka_${scalaBinaryVersion}", version: "${flinkVersion}"
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
     flinkShadowJar group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.10.0'
+    // https://mvnrepository.com/artifact/commons-codec/commons-codec
+    flinkShadowJar group: 'commons-codec', name: 'commons-codec', version: '1.13'
+
 
 
 
