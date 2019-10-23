@@ -1,9 +1,12 @@
-CREATE USER kafka_connect WITH PASSWORD 'kafka_connect';
-CREATE DATABASE kafka_connect;
-GRANT ALL PRIVILEGES ON DATABASE kafka_connect TO kafka_connect;
-CREATE TABLE test_topic (
-    id serial,
-    name text,
-    location text
-);
-INSERT INTO test_topic (id, name, location) VALUES (1, 'name', 'location')
+CREATE USER flink_db WITH PASSWORD 'flink_db';
+CREATE DATABASE flink_db;
+GRANT ALL PRIVILEGES ON DATABASE flink_db TO flink_db;
+\c flink_db;
+CREATE TABLE "input_table" (id serial PRIMARY KEY, name VARCHAR(255),location VARCHAR(255));
+INSERT INTO "input_table" (id, name, location) VALUES (1, 'name1', 'location');
+INSERT INTO "input_table" (id, name, location) VALUES (2, 'name2', 'location');
+INSERT INTO "input_table" (id, name, location) VALUES (3, 'name3', 'location');
+INSERT INTO "input_table" (id, name, location) VALUES (4, 'name4', 'location');
+INSERT INTO "input_table" (id, name, location) VALUES (5, 'name5', 'location');
+INSERT INTO "input_table" (id, name, location) VALUES (6, 'name6', 'location');
+CREATE TABLE "output_table" (id serial PRIMARY KEY, name VARCHAR(255), location VARCHAR(255));

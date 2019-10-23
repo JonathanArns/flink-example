@@ -18,21 +18,20 @@
 
 package main;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.io.jdbc.JDBCInputFormat;
+import org.apache.flink.api.java.io.jdbc.JDBCOutputFormat;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
-import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
+import org.apache.flink.types.Row;
 
 import java.sql.*;
-import java.util.Properties;
+import java.util.stream.Stream;
 
 
 /**
@@ -40,20 +39,61 @@ import java.util.Properties;
  *
  */
 public class StreamingJob {
-
+    private static String postgresHost, postgresDB, postgresUser, postgresPassword;
+    private static String inputTable = "input_table", outputTable = "output_table";
 	public static void main(String[] args) throws Exception {
 		ParameterTool parameterTool = ParameterTool.fromArgs(args);
 
 		String jobName = parameterTool.get("job-name", "DatabaseHashingJob");
-		String postgresUrl = parameterTool.get("postgres-url", "jdbc:postgresql://postgres:5432/kafka_connect");
-		String postgresUser = parameterTool.get("postgres-user", "kafka_connect");
-		String postgresPassword = parameterTool.get("postgres-password", "kafka_connect");
+		postgresHost = parameterTool.get("postgres-host", "postgres:5432");
+        postgresDB = parameterTool.get("postgres-db", "flink_db");
+		postgresUser = parameterTool.get("postgres-user", "postgres");
+		postgresPassword = parameterTool.get("postgres-password", "postgres");
 
-		Connection dbc = DriverManager.getConnection(postgresUrl, postgresUser, postgresPassword);
-		Statement stmt = dbc.createStatement();
-		ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM test_topic");
-		rs.next();
-		int count = rs.getInt(1);
-		throw new Exception("Count DB Elements: "+count);
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        DataStreamSource<Row> inputData = env.createInput(StreamingJob.createJDBCSource());
+        inputData.print();
+        SingleOutputStreamOperator<Row> transformedSet = inputData.filter(row -> Integer.parseInt(row.getField(0).toString()) < 3);
+        transformedSet.print();
+        transformedSet.writeUsingOutputFormat(StreamingJob.createJDBCSink());
+
+        env.execute();
 	}
+
+
+
+    private static JDBCOutputFormat createJDBCSink() {
+        TypeInformation<?>[] fieldTypes = new TypeInformation<?>[] {
+                BasicTypeInfo.INT_TYPE_INFO,
+                BasicTypeInfo.STRING_TYPE_INFO,
+                BasicTypeInfo.STRING_TYPE_INFO };
+
+        return JDBCOutputFormat.buildJDBCOutputFormat()
+                .setDBUrl(String.format("jdbc:postgresql://%s/%s", StreamingJob.postgresHost, StreamingJob.postgresDB))
+                .setDrivername("org.postgresql.Driver")
+                .setUsername(StreamingJob.postgresUser)
+                .setPassword(StreamingJob.postgresPassword)
+                .setQuery(String.format("insert into %s (id, name, location) values (?,?,?)", StreamingJob.outputTable))
+                .setSqlTypes(new int[]{Types.INTEGER, Types.VARCHAR, Types.VARCHAR})
+                .setBatchInterval(200)
+                .finish();
+    }
+
+    private static JDBCInputFormat createJDBCSource() {
+
+        TypeInformation<?>[] fieldTypes = new TypeInformation<?>[] {
+                BasicTypeInfo.INT_TYPE_INFO,
+                BasicTypeInfo.STRING_TYPE_INFO,
+                BasicTypeInfo.STRING_TYPE_INFO };
+
+        return JDBCInputFormat.buildJDBCInputFormat()
+                .setDBUrl(String.format("jdbc:postgresql://%s/%s", StreamingJob.postgresHost, StreamingJob.postgresDB))
+                .setDrivername("org.postgresql.Driver")
+                .setUsername(StreamingJob.postgresUser)
+                .setPassword(StreamingJob.postgresPassword)
+                .setQuery("SELECT id, name ,location FROM "+StreamingJob.inputTable)
+                .setRowTypeInfo(new RowTypeInfo(fieldTypes))
+                .finish();
+    }
 }
