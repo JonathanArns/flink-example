@@ -20,7 +20,6 @@ package main;
 
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.io.jdbc.JDBCInputFormat;
 import org.apache.flink.api.java.io.jdbc.JDBCOutputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -31,7 +30,6 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.types.Row;
 
 import java.sql.*;
-import java.util.stream.Stream;
 
 
 /**

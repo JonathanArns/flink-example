@@ -80,13 +80,6 @@ dependencies {
     // --------------------------------------------------------------
     //flinkShadowJar "org.apache.flink:flink-connector-kafka-0.11_${scalaBinaryVersion}:${flinkVersion}"
 
-    // https://mvnrepository.com/artifact/org.apache.flink/flink-connector-kafka
-    flinkShadowJar group: 'org.apache.flink', name: "flink-connector-kafka_${scalaBinaryVersion}", version: "${flinkVersion}"
-    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    flinkShadowJar group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.10.0'
-    // https://mvnrepository.com/artifact/commons-codec/commons-codec
-    flinkShadowJar group: 'commons-codec', name: 'commons-codec', version: '1.13'
-
     // https://mvnrepository.com/artifact/org.apache.flink/flink-jdbc
     flinkShadowJar group: 'org.apache.flink', name: 'flink-jdbc_2.11', version: '1.9.1'
 
