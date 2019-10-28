@@ -69,7 +69,7 @@ public class StreamingJob {
 				.map((MapFunction<String, ObjectNode>) value -> (ObjectNode)objectMapper.readTree(value))
 				// do the calculation and add the hash to the payload as well as its definition to the schema
 				.map((MapFunction<ObjectNode, ObjectNode>) value -> {
-					((ObjectNode) value.get("payload")).put("postgres_pk", DigestUtils.sha256Hex(objectMapper.writeValueAsBytes(value)));
+					((ObjectNode) value.get("payload")).put("postgres_pk", DigestUtils.sha256Hex(objectMapper.writeValueAsBytes(value.get("payload"))));
 					((ArrayNode) value.get("schema").get("fields")).add(objectMapper.createObjectNode()
 							.put("type","string").put("optional",false).put("field","postgres_pk"));
 					return value;
