@@ -46,7 +46,7 @@ public class StreamingJob {
 		String inputTopic = parameterTool.get("input-topic", "test_topic");
 		String outputTopic = parameterTool.get("output-topic", "test_topic_persist");
 		String consumerGroup = parameterTool.get("group-id", "KeyHashingGroup");
-		String kafkaAddress = parameterTool.get("kafka-address", "localhost:9092"); // for running in eclipse use "localhost:9092", for flink cluster "kafka:29092"
+		String kafkaAddress = parameterTool.get("kafka-address", "kafka:29092"); // for running in eclipse use "localhost:9092", for flink cluster "kafka:29092"
 
 		ObjectMapper objectMapper = new ObjectMapper();
 
