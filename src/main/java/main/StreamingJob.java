@@ -18,18 +18,35 @@
 
 package main;
 
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.io.jdbc.JDBCInputFormat;
-import org.apache.flink.api.java.io.jdbc.JDBCOutputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
+import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
+import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
+import org.apache.flink.streaming.connectors.elasticsearch6.ElasticsearchSink;
 import org.apache.flink.types.Row;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.Requests;
+import org.elasticsearch.client.RestClientBuilder;
 
-import java.sql.*;
+import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.*;
 
 
 /**
@@ -38,7 +55,12 @@ import java.sql.*;
  */
 public class StreamingJob {
     private static String postgresHost, postgresDB, postgresUser, postgresPassword;
-    private static String inputTable = "input_table", outputTable = "output_table";
+    private static String inputTable = "input_table";
+
+    public static final String ES_SECURITY_ENABLE = "es.security.enable";
+    public static final String ES_SECURITY_USERNAME = "es.security.username";
+    public static final String ES_SECURITY_PASSWORD = "es.security.password";
+
 	public static void main(String[] args) throws Exception {
 		ParameterTool parameterTool = ParameterTool.fromArgs(args);
 
@@ -52,31 +74,12 @@ public class StreamingJob {
 
         DataStreamSource<Row> inputData = env.createInput(StreamingJob.createJDBCSource());
         inputData.print();
-        SingleOutputStreamOperator<Row> transformedSet = inputData.filter(row -> Integer.parseInt(row.getField(0).toString()) < 3);
-        transformedSet.print();
-        transformedSet.writeUsingOutputFormat(StreamingJob.createJDBCSink());
-
+        //SingleOutputStreamOperator<Row> transformedSet = inputData.filter(row -> Integer.parseInt(row.getField(0).toString()) < 3);
+        //transformedSet.print();
+        //transformedSet.writeUsingOutputFormat(StreamingJob.createElasticsearchSink());
+        inputData.addSink((SinkFunction<Row>) createElasticsearchSink());
         env.execute();
 	}
-
-
-
-    private static JDBCOutputFormat createJDBCSink() {
-        TypeInformation<?>[] fieldTypes = new TypeInformation<?>[] {
-                BasicTypeInfo.INT_TYPE_INFO,
-                BasicTypeInfo.STRING_TYPE_INFO,
-                BasicTypeInfo.STRING_TYPE_INFO };
-
-        return JDBCOutputFormat.buildJDBCOutputFormat()
-                .setDBUrl(String.format("jdbc:postgresql://%s/%s", StreamingJob.postgresHost, StreamingJob.postgresDB))
-                .setDrivername("org.postgresql.Driver")
-                .setUsername(StreamingJob.postgresUser)
-                .setPassword(StreamingJob.postgresPassword)
-                .setQuery(String.format("insert into %s (id, name, location) values (?,?,?)", StreamingJob.outputTable))
-                .setSqlTypes(new int[]{Types.INTEGER, Types.VARCHAR, Types.VARCHAR})
-                .setBatchInterval(200)
-                .finish();
-    }
 
     private static JDBCInputFormat createJDBCSource() {
 
@@ -93,5 +96,55 @@ public class StreamingJob {
                 .setQuery("SELECT id, name ,location FROM "+StreamingJob.inputTable)
                 .setRowTypeInfo(new RowTypeInfo(fieldTypes))
                 .finish();
+    }
+
+    private static ElasticsearchSink.Builder<String> createElasticsearchSink() throws Exception{
+
+        Map<String, String> config = new HashMap<>();
+        config.put("cluster.name", "docker-cluster");
+// This instructs the sink to emit after every element, otherwise they would be buffered
+        config.put("bulk.flush.max.actions", "1");
+        // config.put();
+
+        List<HttpHost> httpHosts = new ArrayList<>();
+        httpHosts.add(new HttpHost("elasticsearch", 9200, "http"));
+
+        ElasticsearchSink.Builder<String> esSinkBuilder = new ElasticsearchSink.Builder<>(
+                httpHosts,
+                new ElasticsearchSinkFunction<String>() {
+                    public IndexRequest createIndexRequest(String element) {
+                        Map<String, String> json = new HashMap<>();
+                        json.put("data", element);
+
+                        return Requests.indexRequest()
+                                .index("example-index")
+                                .type("example-type")
+                                .source(json);
+                    }
+
+                    @Override
+                    public void process(String element, RuntimeContext ctx, RequestIndexer indexer) {
+                        indexer.add(createIndexRequest(element));
+                    }
+                }
+        );
+        esSinkBuilder.setBulkFlushMaxActions(1);
+        // provide a RestClientFactory for custom configuration on the internally created REST client
+        esSinkBuilder.setRestClientFactory(
+                restClientBuilder -> {
+                    restClientBuilder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+                        @Override
+                        public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
+                            // elasticsearch username and password
+                            CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                            credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials("elastic", "BRHhwoXneUaV8fYvLcu5"));
+                            return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                        }
+                    });
+                }
+        );
+
+        return esSinkBuilder;
+
     }
 }
