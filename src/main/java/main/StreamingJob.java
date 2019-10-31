@@ -82,6 +82,7 @@ public class StreamingJob {
         });
         //SingleOutputStreamOperator<Row> transformedSet = inputData.filter(row -> Integer.parseInt(row.getField(0).toString()) < 3);
         //transformedSet.print();
+
         //transformedSet.writeUsingOutputFormat(StreamingJob.createElasticsearchSink());
         inputDataString.print();
         inputDataString.addSink(createElasticsearchSink().build());
