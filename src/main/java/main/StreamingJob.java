@@ -38,29 +38,47 @@ import java.sql.*;
  */
 public class StreamingJob {
     private static String postgresHost, postgresDB, postgresUser, postgresPassword;
-    private static String inputTable = "input_table", outputTable = "output_table";
+    private static String inputTable, outputTable;
 	public static void main(String[] args) throws Exception {
-		ParameterTool parameterTool = ParameterTool.fromArgs(args);
 
+	    // Parameters for postgres
+		ParameterTool parameterTool = ParameterTool.fromArgs(args);
 		String jobName = parameterTool.get("job-name", "DatabaseHashingJob");
 		postgresHost = parameterTool.get("postgres-host", "postgres:5432");
         postgresDB = parameterTool.get("postgres-db", "flink_db");
 		postgresUser = parameterTool.get("postgres-user", "postgres");
 		postgresPassword = parameterTool.get("postgres-password", "postgres");
+        inputTable = parameterTool.get("input-table", "input_table");
+        outputTable = parameterTool.get("output-table", "output_table");
 
+        // Create execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
+        // Set input source
         DataStreamSource<Row> inputData = env.createInput(StreamingJob.createJDBCSource());
+
+        // Debug inputdata
         inputData.print();
+
+        // Transform data.
+        // TODO: Update this according to your needs.
         SingleOutputStreamOperator<Row> transformedSet = inputData.filter(row -> Integer.parseInt(row.getField(0).toString()) < 3);
+
+        // Debug transformed data
         transformedSet.print();
+
+        // Set output source
         transformedSet.writeUsingOutputFormat(StreamingJob.createJDBCSink());
 
+        // Commit job
         env.execute();
 	}
 
 
-
+    /**
+     * Here is the JDBS Sink. Update fieldTypes and Query to meet your requirements.
+     * @return
+     */
     private static JDBCOutputFormat createJDBCSink() {
         TypeInformation<?>[] fieldTypes = new TypeInformation<?>[] {
                 BasicTypeInfo.INT_TYPE_INFO,
@@ -78,6 +96,10 @@ public class StreamingJob {
                 .finish();
     }
 
+    /**
+     * Here is the JDBS Source. Update fieldTypes and Query to meet your requirements.
+     * @return
+     */
     private static JDBCInputFormat createJDBCSource() {
 
         TypeInformation<?>[] fieldTypes = new TypeInformation<?>[] {
