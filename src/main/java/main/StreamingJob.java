@@ -18,12 +18,14 @@
 
 package main;
 
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.io.jdbc.JDBCInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -43,9 +45,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Requests;
 import org.elasticsearch.client.RestClientBuilder;
 
-import java.io.UnsupportedEncodingException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.util.*;
 
 
@@ -72,12 +71,20 @@ public class StreamingJob {
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        DataStreamSource<Row> inputData = env.createInput(StreamingJob.createJDBCSource());
+        DataStream<Row> inputData = env.createInput(StreamingJob.createJDBCSource());
         inputData.print();
+        DataStream<String[]> inputDataString = inputData.map(new MapFunction<Row, String[]>() {
+            @Override
+            public String[] map(Row value) throws Exception {
+
+                return new String[] {value.getField(0).toString(), value.getField(1).toString(), value.getField(2).toString()};
+            }
+        });
         //SingleOutputStreamOperator<Row> transformedSet = inputData.filter(row -> Integer.parseInt(row.getField(0).toString()) < 3);
         //transformedSet.print();
         //transformedSet.writeUsingOutputFormat(StreamingJob.createElasticsearchSink());
-        inputData.addSink((SinkFunction<Row>) createElasticsearchSink());
+        inputDataString.print();
+        inputDataString.addSink(createElasticsearchSink().build());
         env.execute();
 	}
 
@@ -98,7 +105,7 @@ public class StreamingJob {
                 .finish();
     }
 
-    private static ElasticsearchSink.Builder<String> createElasticsearchSink() throws Exception{
+    private static ElasticsearchSink.Builder<String[]> createElasticsearchSink() throws Exception{
 
         Map<String, String> config = new HashMap<>();
         config.put("cluster.name", "docker-cluster");
@@ -109,12 +116,14 @@ public class StreamingJob {
         List<HttpHost> httpHosts = new ArrayList<>();
         httpHosts.add(new HttpHost("elasticsearch", 9200, "http"));
 
-        ElasticsearchSink.Builder<String> esSinkBuilder = new ElasticsearchSink.Builder<>(
+        ElasticsearchSink.Builder<String[]> esSinkBuilder = new ElasticsearchSink.Builder<>(
                 httpHosts,
-                new ElasticsearchSinkFunction<String>() {
-                    public IndexRequest createIndexRequest(String element) {
+                new ElasticsearchSinkFunction<String[]>() {
+                    public IndexRequest createIndexRequest(String[] element) {
                         Map<String, String> json = new HashMap<>();
-                        json.put("data", element);
+                        json.put("id", element[0]);
+                        json.put("name", element[1]);
+                        json.put("location", element[2]);
 
                         return Requests.indexRequest()
                                 .index("example-index")
@@ -123,7 +132,7 @@ public class StreamingJob {
                     }
 
                     @Override
-                    public void process(String element, RuntimeContext ctx, RequestIndexer indexer) {
+                    public void process(String[] element, RuntimeContext ctx, RequestIndexer indexer) {
                         indexer.add(createIndexRequest(element));
                     }
                 }
